@@ -1,6 +1,7 @@
 /** Implements a graphical snake's food. */
 class Food {
 	field int x, y; // screen location of the food's top-left corner
+	field int xF, yF; // screen location of the food's down-right corner
 	field int size; // length of this snake, in pixels
 
 	/** Constructs a new food with a given location and size. */
@@ -8,6 +9,8 @@ class Food {
 		let x = Ax;
 		let y = Ay;
 		let size = Asize;
+		let xF = x + size;
+		let yF = y + size;
 		do draw();
 		return this;
 	}
@@ -15,6 +18,8 @@ class Food {
 	/** Accessors. */
     method int getX() { return x; }
     method int getY() { return y; }
+    method int getXF() { return xF; }
+    method int getYF() { return yF; }
 
 	/** Disposes this food. */
 	method void dispose() {
@@ -25,20 +30,22 @@ class Food {
 	/** Draws the food on the screen. */
 	method void draw() {
 		do Screen.setColor(true);
-		do Screen.drawRectangle(x, y, x + size, y + size);
+		do Screen.drawRectangle(x, y, xF, yF);
 		return;
 	}
 
 	/** Erases the food from the screen. */
 	method void erase() {
 		do Screen.setColor(false);
-		do Screen.drawRectangle(x, y, x + size, y + size);
+		do Screen.drawRectangle(x, y, xF, yF);
 		return;
 	}
 
 	method void drawInRandomLocation() {
 		let x = x+6;
 		let y = y+6;
+		let xF = x + size;
+		let yF = y + size;
 		do draw();
 		return;
 	}

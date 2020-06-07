@@ -1,7 +1,7 @@
 /** Implements a graphical snake. */
 class Snake {
 
-	field int x, y; // screen location of the snake's top-left corner
+	field int x, y; // screen location of the snake's top-left corner head
 	field int size; // length of this snake, in pixels
 	field SnakeNode head; 
 	field SnakeNode tail; 
@@ -31,7 +31,7 @@ class Snake {
 		var SnakeNode newNode;
 		if (y > 1) {
 			let y = y - 3;
-			if (x = food.getX() & y = food.getY()) {
+			if ( isTouchingFood() ) {
 				do food.erase();
 				do food.drawInRandomLocation();
 				let newNode = SnakeNode.newWithoutLocation(size, null);
@@ -50,7 +50,7 @@ class Snake {
 		var SnakeNode newNode;
 		if ((y + size) < 254) {
 			let y = y + 3;
-			if (x = food.getX() & y = food.getY()) {
+			if ( isTouchingFood() ) {
 				do food.erase();
 				do food.drawInRandomLocation();
 				let newNode = SnakeNode.newWithoutLocation(size, null);
@@ -69,7 +69,8 @@ class Snake {
 		var SnakeNode newNode;
 		if (x > 1) {        
 			let x = x - 3;
-			if (x = food.getX() & y = food.getY()) {
+			// check if ate 
+			if ( isTouchingFood() ) {
 				do food.erase();
 				do food.drawInRandomLocation();
 				let newNode = SnakeNode.newWithoutLocation(size, null);
@@ -88,7 +89,8 @@ class Snake {
 		var SnakeNode newNode;
 		if ((x + size) < 510) {
 			let x = x + 3;
-			if (x = food.getX() & y = food.getY()) {
+			// check if ate 
+			if ( isTouchingFood() ) {
 				do food.erase();
 				do food.drawInRandomLocation();
 				let newNode = SnakeNode.newWithoutLocation(size, null);
@@ -100,5 +102,27 @@ class Snake {
 			do Sys.halt();
 		}
 		return;
+	}
+	
+	method boolean isTouchingFood() {
+		if ((xInFood(x) & yInFood(y)) | (xInFood(x + size) & yInFood(y)) | (xInFood(x + size) & yInFood(y + size)) | (xInFood(x) & yInFood(y + size))){
+			return true;
+		}
+		return false;
+		
+	}
+	
+	method boolean yInFood(int Ay) {
+		if ( Ay = food.getY() | ((Ay > food.getY()) & (Ay < food.getYF()))){
+			return true;
+		}
+		return false;
+	}
+	
+	method boolean xInFood(int Ax) {
+		if ( Ax = food.getX() | ((Ax > food.getX()) & (Ax < food.getXF()))){
+			return true;
+		}
+		return false;
 	}
 }
