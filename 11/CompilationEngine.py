@@ -1,5 +1,6 @@
 from JackTokenizer import *
 from SymbolTable import IdentifierKind
+from VMWriter import Segment
 
 XML_EXTENSION = 'xml'
 DOT = '.'
@@ -14,17 +15,28 @@ TERM_ENDING = {'[', '(', "."}
 OPERATORS = {PLUS, MINUS, ASTERISK, SLASH, AMPERSAND,
              PIPELINE, LESS_THAN, GREATER_THAN, EQUAL, TILDA}
 UNARY_OPERATORS = {TILDA, MINUS}
+BINARY_OPERATORS_TO_FUNC = {ASTERISK: 'call Math.multiply 2',
+                            SLASH: 'call Math.divide 2',
+                            PLUS: 'add',
+                            MINUS: 'sub',
+                            AMPERSAND: 'and',
+                            PIPELINE: 'or',
+                            LESS_THAN: 'lt',
+                            GREATER_THAN: 'gt',
+                            EQUAL: 'eq'}
 
 
 class CompilationEngine:
     return_label_counter = 0
 
-    def __init__(self, file_name, more_than_one_file, tokenizer, symbol_table):
+    def __init__(self, file_name, more_than_one_file, tokenizer, symbol_table, vm_writer):
         self.output_file = open(file_name + DOT + XML_EXTENSION, "w")
         self.file_name = file_name.split(BACK_SLASH)[-1]
+        self.class_name = self.file_name
         self.indent_level = 0
         self.tokenizer = tokenizer
         self.symbol_table = symbol_table
+        self.vm_writer = vm_writer
         self.in_unary = False
         if more_than_one_file:
             pass
@@ -46,9 +58,15 @@ class CompilationEngine:
 
         if self.tokenizer.token_type() == TokenType.INT_CONST:
             tag = 'integerConstant'
+            self.vm_writer.write_push(Segment.CONST, token)
         if self.tokenizer.token_type() == TokenType.STRING_CONST:
             tag = 'stringConstant'
+            # TODO self.vm_writer.self.write_string
             token = self.tokenizer.string_val()
+        if tag == TokenType.KEYWORD.name.lower():
+            if self.tokenizer.keyword == THIS:
+                self.vm_writer.write_push(Segment.POINTER, 0)
+
         if tag == TokenType.IDENTIFIER.name.lower():
             self.handle_identifier(tag, token, scope, is_used)
             return
@@ -59,13 +77,13 @@ class CompilationEngine:
 
     def __process(self, token, scope=None, is_used=True):
         if self.tokenizer.current_token == token:
-            self.__printXMLToken(scope, is_used)
+            self.__printToken(scope, is_used)
         else:
             print('syntax error, token= ' + token +
                   ', current_token= ' + self.tokenizer.current_token)
         self.tokenizer.advance()
 
-    def __printXMLToken(self, scope=None, is_used=True):
+    def __printToken(self, scope=None, is_used=True):
         self.__write_complete_tag_and_token(scope, is_used)
 
     def compile_class(self):
@@ -73,6 +91,7 @@ class CompilationEngine:
         self.indent_level += 2
         self.__process(CLASS)
         # process class name
+        self.class_name = self.tokenizer.current_token
         self.__process(self.tokenizer.current_token, scope=CLASS, is_used=False)
 
         while self.tokenizer.has_more_tokens():
@@ -83,7 +102,8 @@ class CompilationEngine:
                 self.indent_level -= 2
                 self.__write_tag('/classVarDec')
             elif self.tokenizer.current_token in SUBROUTINE_DEC:
-                self.compile_subroutine_dec()
+                subroutine_type = self.tokenizer.current_token
+                self.compile_subroutine_dec(subroutine_type)
             else:
                 self.__process(self.tokenizer.current_token)
 
@@ -91,16 +111,20 @@ class CompilationEngine:
         self.indent_level -= 2
         self.__write_tag('/' + CLASS)
 
-    def compile_subroutine_dec(self):
+    def compile_subroutine_dec(self, subroutine_type):
         self.__write_tag('subroutineDec')
         self.indent_level += 2
         self.symbol_table.start_subroutine()
+        # in methods only- argument 0 is always named this
+        if subroutine_type == METHOD:
+            self.symbol_table.define("this", self.class_name, IdentifierKind.ARG)
+
         self.__process(self.tokenizer.current_token)
         # process the return value - class name
         self.__process(self.tokenizer.current_token, scope=CLASS, is_used=False)
         while self.tokenizer.current_token != '}':
             if self.tokenizer.peek_next_token() == "(":
-                # set subroutine identifier
+                # process subroutine name- set subroutine identifier
                 self.__process(self.tokenizer.current_token, scope=SUBROUTINE, is_used=False)
             if self.tokenizer.current_token == '(':
                 self.__process(self.tokenizer.current_token)
@@ -264,8 +288,14 @@ class CompilationEngine:
                 self.in_unary = False
             elif self.tokenizer.current_token in UNARY_OPERATORS and beginning_expression is True:
                 self.compile_term()
+            elif self.tokenizer.current_token in OPERATORS:
+                operator = self.tokenizer.current_token
+                self.tokenizer.advance()
+                self.compile_term()
+                self.vm_writer.write_line(BINARY_OPERATORS_TO_FUNC[operator])
             else:
                 self.__process(self.tokenizer.current_token)
+
             beginning_expression = False
         self.indent_level -= 2
         self.__write_tag('/expression')
@@ -314,7 +344,7 @@ class CompilationEngine:
                 self.__process(self.tokenizer.current_token, scope=SUBROUTINE)
             else:
                 self.__process(self.tokenizer.current_token)
-            #self.__process(self.tokenizer.current_token)
+
         if self.tokenizer.current_token in UNARY_OPERATORS and self.in_unary:
             self.compile_expression()
             self.__process(self.tokenizer.current_token)
@@ -330,6 +360,7 @@ class CompilationEngine:
 
     def close(self):
         self.output_file.close()
+        self.vm_writer.close()
 
     def get_identifier_kind(self, current_token):
         if current_token == STATIC:
@@ -353,3 +384,8 @@ class CompilationEngine:
         is_used_str = "defined" if is_used == False else "used"
         token += is_used_str
         self.__write_line("<{}> {} </{}>".format(tag, token, tag))
+
+        if identifier_category_str == SUBROUTINE:
+            function_name = self.class_name + DOT + identifier_name
+            if not is_used:  # defined subroutine
+                self.vm_writer.write_function(function_name, self.symbol_table.var_count(IdentifierKind.ARG))

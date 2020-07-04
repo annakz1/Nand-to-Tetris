@@ -4,6 +4,7 @@ from os import path
 from JackTokenizer import JackTokenizer
 from CompilationEngine import CompilationEngine
 from SymbolTable import SymbolTable
+from VMWriter import VMWriter
 
 USAGE_INSTRUCTION = 'Usage: JackAnalyzer <file.jack or directory>'
 NO_VM_FILES = 'Error: No .jack files in directory'
@@ -65,7 +66,7 @@ file_name = check_input()
 if file_name is not None:  # this case handles single file
     parser = JackTokenizer(file_name + DOT + JACK_EXTENSION)
     try:
-        code_writer = CompilationEngine(file_name, False, parser, SymbolTable())
+        code_writer = CompilationEngine(file_name, False, parser, SymbolTable(), VMWriter(file_name))
         parse_commands_and_write_output()
     except IOError:
         print(FILE_WRITE_ERROR)
@@ -89,7 +90,9 @@ else:
             sys.exit()
         for jack_file in files_to_parse:
             parser = JackTokenizer(path_name + BACK_SLASH + jack_file)
-            code_writer = CompilationEngine(path_name + BACK_SLASH + jack_file.split(DOT)[0], False, parser, SymbolTable())
+            file_name = path_name + BACK_SLASH + jack_file.split(DOT)[0]
+            code_writer = CompilationEngine(file_name, False, parser,
+                                            SymbolTable(), VMWriter(file_name))
             parse_commands_and_write_output()
             code_writer.close()
     except IOError:
