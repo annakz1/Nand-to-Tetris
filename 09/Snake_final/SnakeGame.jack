@@ -1,0 +1,66 @@
+
+class SnakeGame {
+
+	field Snake snake; // the snake of this game
+	field Food food; // the snake's food
+	field int direction; // the snake's current direction: 
+                        // 0=none, 1=up, 2=down, 3=left, 4=right
+
+    /** Constructs a new Snake Game. */
+	constructor SnakeGame new() {
+		// Creates a 3 by 3 pixels food and positions it at chosen location
+		let food = Food.new(3);
+		// Creates a 3 by 3 pixels snake and positions it at the top-left
+		// of the screen.
+		let snake = Snake.new(0, 0, 3, food);
+		let direction = 0;  // initial state is no movement
+		return this;
+	} 
+   
+	/** Disposes this game. */
+	method void dispose() {
+		do snake.dispose();
+		do food.dispose();
+		do Memory.deAlloc(this);
+		return;
+	}
+   
+	/** Runs the game: handles the user's inputs and moves the snake accordingly */
+	method void run() {
+		var char key;  // the key currently pressed by the user
+		var boolean exit;
+		let exit = false;
+      
+		while (~exit) {
+			// waits for a key to be pressed
+			while (key = 0) {
+				let key = Keyboard.keyPressed();
+				do moveSnake();
+			}
+			if (key = 81)  { let exit = true; }     // q key
+			if (key = 131) { let direction = 1; }   // up arrow
+			if (key = 133) { let direction = 2; }   // down arrow
+			if (key = 130) { let direction = 3; }   // left arrow
+			if (key = 132) { let direction = 4; }   // right arrow
+
+			// waits for the key to be released
+			while (~(key = 0)) {
+				let key = Keyboard.keyPressed();
+				do moveSnake();
+			}
+		} // while
+	  
+		return;
+	}
+   
+	/** Moves the snake in the current direction. */
+	method void moveSnake() {
+		if (direction = 1) { do snake.moveUp(); }
+		if (direction = 2) { do snake.moveDown(); }
+		if (direction = 3) { do snake.moveLeft(); }
+		if (direction = 4) { do snake.moveRight(); }
+		do Sys.wait(15);  // delays the next movement
+		return;
+	}
+						
+}

@@ -1,0 +1,96 @@
+
+/** Represents a linked list of SnakeNode. */
+class SnakeNode {
+	field int data;          
+    field int x, y;          // screen location of the snake's node top-left corner
+	field int size;
+    field SnakeNode next;         
+
+    /* Creates a SnakeNode. */
+    constructor SnakeNode new(int Ax, int Ay, int Asize, SnakeNode cdr) {
+		let x = Ax;       
+        let y = Ay;       
+		let size = Asize;
+        let next = cdr;       // memory of the Lisp programming language
+        return this;
+    }
+
+    /* Creates a SnakeNode Without Location. */
+    constructor SnakeNode newWithoutLocation(int Asize, SnakeNode cdr) {
+	    let size = Asize;
+        let next = cdr;       // memory of the Lisp programming language
+        return this;
+    }
+
+    /** Accessors. */
+    method int getData() { return data; }
+    method int getX() { return x; }
+    method int getY() { return y; }
+    method int getNext() { return next; }
+	/** Setters */
+    method void setX(int Ax) { let x = Ax; return;}
+    method void setY(int Ay) { let y = Ay; return;}
+    method void setNext(SnakeNode Anext) { let next = Anext; return;}
+
+    /** Prints this list. */
+    method void print() {
+        var SnakeNode current;    // initializes current to the first item
+        let current = this;  // of this list
+        while (~(current = null)) {
+            do Output.printInt(current.getData());
+			do Output.printChar(32); // prints a space
+            let current = current.getNext();
+        }
+        return;
+    }
+
+    /** Draws this list. */
+    method void updateSnakeLocation(int updatedX, int updatedY) {
+        var SnakeNode current;    // initializes current to the first item
+        var int oldX;    
+        var int oldY;    
+		
+		// draw the list from head to tail
+        let current = this;  // of this list
+        while (~(current = null)) {
+			do current.erase();
+			
+			let oldX = current.getX();
+			let oldY = current.getY();
+			do current.setX(updatedX);
+			do current.setY(updatedY);
+			do current.draw();
+			
+            let updatedX = oldX;
+            let updatedY = oldY;
+            let current = current.getNext();
+        }
+        return;
+    }
+
+
+    /** Disposes this SnakeNode by recursively disposing its tail. */
+    method void dispose() {
+        if (~(next = null)) {
+            do next.dispose();
+        }
+        // Uses an OS routine to recycle this object.
+        do Memory.deAlloc(this);
+        return;
+    }
+
+   /** Draws the SnakeNode on the screen. */
+   method void draw() {
+      do Screen.setColor(true);
+      do Screen.drawRectangle(x, y, x + size, y + size);
+      return;
+   }
+
+   /** Erases the SnakeNode from the screen. */
+   method void erase() {
+      do Screen.setColor(false);
+      do Screen.drawRectangle(x, y, x + size, y + size);
+      return;
+   }
+
+}
