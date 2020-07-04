@@ -36,17 +36,17 @@ class SymbolTable:
         :param kind: identifier's kind: STATIC, FIELD, ARG or VAR
         """
         if kind == IdentifierKind.STATIC:
-            self.class_level_static_index += 1
             self.class_level_table[name] = [type, kind, self.class_level_static_index]
+            self.class_level_static_index += 1
         elif kind == IdentifierKind.FIELD:
-            self.class_level_field_index += 1
             self.class_level_table[name] = [type, kind, self.class_level_field_index]
+            self.class_level_field_index += 1
         elif kind == IdentifierKind.ARG:
-            self.subroutine_level_argument_index += 1
             self.subroutine_level_table[name] = [type, kind, self.subroutine_level_argument_index]
+            self.subroutine_level_argument_index += 1
         else:
-            self.subroutine_level_local_index += 1
             self.subroutine_level_table[name] = [type, kind, self.subroutine_level_local_index]
+            self.subroutine_level_local_index += 1
 
     def var_count(self, kind: IdentifierKind):
         """
@@ -72,10 +72,10 @@ class SymbolTable:
         :param name: identifier's name
         :return: STATIC, FIELD, ARG, VAR, NONE
         """
-        if name in self.class_level_table:
-            return self.class_level_table[name][1]
-        elif name in self.subroutine_level_table:
+        if name in self.subroutine_level_table:
             return self.subroutine_level_table[name][1]
+        elif name in self.class_level_table:
+            return self.class_level_table[name][1]
         else:
             return IdentifierKind.NONE
 
@@ -86,10 +86,10 @@ class SymbolTable:
         :param name: identifier's name
         :return: identifier's type
         """
-        if name in self.class_level_table:
-            return self.class_level_table[name][0]
-        elif name in self.subroutine_level_table:
+        if name in self.subroutine_level_table:
             return self.subroutine_level_table[name][0]
+        elif name in self.class_level_table:
+            return self.class_level_table[name][0]
 
     def index_of(self, name):
         """
@@ -98,7 +98,7 @@ class SymbolTable:
         :param name: identifier's name
         :return: identifier's index
         """
-        if name in self.class_level_table:
-            return self.class_level_table[name][2]
-        elif name in self.subroutine_level_table:
+        if name in self.subroutine_level_table:
             return self.subroutine_level_table[name][2]
+        elif name in self.class_level_table:
+            return self.class_level_table[name][2]

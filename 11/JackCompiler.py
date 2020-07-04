@@ -89,7 +89,7 @@ else:
             sys.exit()
         for jack_file in files_to_parse:
             parser = JackTokenizer(path_name + BACK_SLASH + jack_file)
-            code_writer = CompilationEngine(path_name + BACK_SLASH + jack_file.split(DOT)[0], False, parser)
+            code_writer = CompilationEngine(path_name + BACK_SLASH + jack_file.split(DOT)[0], False, parser, SymbolTable())
             parse_commands_and_write_output()
             code_writer.close()
     except IOError:

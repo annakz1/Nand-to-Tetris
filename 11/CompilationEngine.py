@@ -16,7 +16,6 @@ OPERATORS = {PLUS, MINUS, ASTERISK, SLASH, AMPERSAND,
 UNARY_OPERATORS = {TILDA, MINUS}
 
 
-
 class CompilationEngine:
     return_label_counter = 0
 
@@ -41,7 +40,7 @@ class CompilationEngine:
     def __write_tag(self, tag):
         self.__write_line("<{}>".format(tag))
 
-    def __write_complete_tag_and_token(self):
+    def __write_complete_tag_and_token(self, scope=None, is_used=True):
         tag = self.tokenizer.token_type().name.lower()
         token = self.tokenizer.current_token
 
@@ -51,37 +50,38 @@ class CompilationEngine:
             tag = 'stringConstant'
             token = self.tokenizer.string_val()
         if tag == TokenType.IDENTIFIER.name.lower():
-            self.handle_identifier(tag, token)
+            self.handle_identifier(tag, token, scope, is_used)
             return
         self.__write_line("<{}> {} </{}>".format(tag, token, tag))
 
     def __write_line(self, line):
         self.output_file.write(self.__get_indent_string() + line + '\n')
 
-    def __process(self, token):
+    def __process(self, token, scope=None, is_used=True):
         if self.tokenizer.current_token == token:
-            self.__printXMLToken()
+            self.__printXMLToken(scope, is_used)
         else:
             print('syntax error, token= ' + token +
                   ', current_token= ' + self.tokenizer.current_token)
         self.tokenizer.advance()
 
-    def __printXMLToken(self):
-        self.__write_complete_tag_and_token()
+    def __printXMLToken(self, scope=None, is_used=True):
+        self.__write_complete_tag_and_token(scope, is_used)
 
     def compile_class(self):
         self.__write_tag(CLASS)
         self.indent_level += 2
         self.__process(CLASS)
+        # process class name
+        self.__process(self.tokenizer.current_token, scope=CLASS, is_used=False)
 
         while self.tokenizer.has_more_tokens():
             if self.tokenizer.current_token in CLASS_VAR_DEC:
                 self.__write_tag('classVarDec')
                 self.indent_level += 2
-                self.compile_var_def()
+                self.compile_var_def(scope=CLASS, is_used=False)
                 self.indent_level -= 2
                 self.__write_tag('/classVarDec')
-
             elif self.tokenizer.current_token in SUBROUTINE_DEC:
                 self.compile_subroutine_dec()
             else:
@@ -94,8 +94,14 @@ class CompilationEngine:
     def compile_subroutine_dec(self):
         self.__write_tag('subroutineDec')
         self.indent_level += 2
+        self.symbol_table.start_subroutine()
         self.__process(self.tokenizer.current_token)
+        # process the return value - class name
+        self.__process(self.tokenizer.current_token, scope=CLASS, is_used=False)
         while self.tokenizer.current_token != '}':
+            if self.tokenizer.peek_next_token() == "(":
+                # set subroutine identifier
+                self.__process(self.tokenizer.current_token, scope=SUBROUTINE, is_used=False)
             if self.tokenizer.current_token == '(':
                 self.__process(self.tokenizer.current_token)
                 self.compile_parameters_list()
@@ -112,8 +118,16 @@ class CompilationEngine:
     def compile_parameters_list(self):
         self.__write_tag('parameterList')
         self.indent_level += 2
+        identifier_kind = IdentifierKind.ARG
+        identifier_type = self.tokenizer.current_token
         while self.tokenizer.current_token != ')':
-            self.__process(self.tokenizer.current_token)
+            if self.tokenizer.peek_next_token() == "," or self.tokenizer.peek_next_token() == ")":
+                # we got to the var name, add to the symbol table
+                self.symbol_table.define(self.tokenizer.current_token, identifier_type, identifier_kind)
+            elif self.tokenizer.current_token != ",":
+                # we got identifier type
+                identifier_type = self.tokenizer.current_token
+            self.__process(self.tokenizer.current_token, is_used=False)
         self.indent_level -= 2
         self.__write_tag('/parameterList')
 
@@ -127,7 +141,7 @@ class CompilationEngine:
             elif self.tokenizer.current_token == VAR:
                 self.__write_tag('varDec')
                 self.indent_level += 2
-                self.compile_var_def()
+                self.compile_var_def(scope=SUBROUTINE, is_used=False)
                 self.indent_level -= 2
                 self.__write_tag('/varDec')
             else:
@@ -136,7 +150,7 @@ class CompilationEngine:
         self.__process(self.tokenizer.current_token)
         self.__write_tag('/subroutineBody')
 
-    def compile_var_def(self):
+    def compile_var_def(self, scope=None, is_used=True):
         identifier_kind = self.get_identifier_kind(self.tokenizer.current_token)
         self.__process(self.tokenizer.current_token)
         # after advance- the token is now the type
@@ -145,7 +159,7 @@ class CompilationEngine:
             # if we got to the var name, add to the symbol table
             if self.tokenizer.peek_next_token() == ";" or self.tokenizer.peek_next_token() == ",":
                 self.symbol_table.define(self.tokenizer.current_token, identifier_type, identifier_kind)
-            self.__process(self.tokenizer.current_token)
+            self.__process(self.tokenizer.current_token, scope, is_used)
         self.__process(self.tokenizer.current_token)
 
     def compile_statements(self):
@@ -219,7 +233,13 @@ class CompilationEngine:
             if self.tokenizer.current_token == '(':
                 self.__process(self.tokenizer.current_token)
                 self.compile_expression_list()
-            self.__process(self.tokenizer.current_token)
+            if self.tokenizer.peek_next_token() == "(":
+                self.__process(self.tokenizer.current_token, scope=SUBROUTINE)
+            elif self.tokenizer.peek_next_token() == ".":
+                self.__process(self.tokenizer.current_token, scope=CLASS)
+            else:
+                self.__process(self.tokenizer.current_token)
+
         self.__process(SEMICOLON)
         self.indent_level -= 2
         self.__write_tag('/doStatement')
@@ -276,7 +296,10 @@ class CompilationEngine:
                 self.__process(self.tokenizer.current_token)
                 self.compile_term()
             else:
-                self.__process(self.tokenizer.current_token)
+                if self.tokenizer.peek_next_token() == ".":
+                    self.__process(self.tokenizer.current_token, scope=CLASS)
+                else:
+                    self.__process(self.tokenizer.current_token)
         while self.tokenizer.current_token in TERM_ENDING:
             if self.tokenizer.current_token == '[':
                 self.__process(self.tokenizer.current_token)
@@ -286,7 +309,12 @@ class CompilationEngine:
                 self.compile_expression_list()
             else:  # is dot
                 self.__process(self.tokenizer.current_token)
-            self.__process(self.tokenizer.current_token)
+
+            if self.tokenizer.peek_next_token() == "(":
+                self.__process(self.tokenizer.current_token, scope=SUBROUTINE)
+            else:
+                self.__process(self.tokenizer.current_token)
+            #self.__process(self.tokenizer.current_token)
         if self.tokenizer.current_token in UNARY_OPERATORS and self.in_unary:
             self.compile_expression()
             self.__process(self.tokenizer.current_token)
@@ -308,14 +336,20 @@ class CompilationEngine:
             return IdentifierKind.STATIC
         elif current_token == FIELD:
             return IdentifierKind.FIELD
+        elif current_token == VAR:
+            return IdentifierKind.VAR
 
-    def handle_identifier(self, tag, identifier_name):
+    def handle_identifier(self, tag, identifier_name, scope, is_used):
         identifier_category = self.symbol_table.kind_of(identifier_name)
-        token = identifier_name + ";" + identifier_category.name.lower() + ";"
+        identifier_category_str = identifier_category.name.lower()
+        if identifier_category == IdentifierKind.NONE:
+            identifier_category_str = scope
+
+        token = identifier_name + ";" + identifier_category_str + ";"
         if identifier_category != IdentifierKind.NONE:
             identifier_index = self.symbol_table.index_of(identifier_name)
             token += str(identifier_index) + ";"
 
+        is_used_str = "defined" if is_used == False else "used"
+        token += is_used_str
         self.__write_line("<{}> {} </{}>".format(tag, token, tag))
-
-
