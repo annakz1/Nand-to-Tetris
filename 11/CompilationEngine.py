@@ -13,7 +13,7 @@ STATEMENTS_TOKENS = {LET, IF, WHILE, DO, RETURN}
 EXPRESSION_ENDING = {';', ')', ']', ','}
 TERM_ENDING = {'[', '(', "."}
 OPERATORS = {PLUS, MINUS, ASTERISK, SLASH, AMPERSAND,
-             PIPELINE, LESS_THAN, GREATER_THAN, EQUAL, TILDA}
+             PIPELINE, LESS_THAN, GREATER_THAN, EQUAL}
 UNARY_OPERATORS = {TILDA, MINUS}
 BINARY_OPERATORS_TO_FUNC = {ASTERISK: 'call Math.multiply 2',
                             SLASH: 'call Math.divide 2',
@@ -24,6 +24,8 @@ BINARY_OPERATORS_TO_FUNC = {ASTERISK: 'call Math.multiply 2',
                             LESS_THAN: 'lt',
                             GREATER_THAN: 'gt',
                             EQUAL: 'eq'}
+UNARY_OPERATORS_TO_FUNC = {TILDA: 'not',
+                           MINUS: 'neg'}
 
 
 class CompilationEngine:
@@ -260,11 +262,16 @@ class CompilationEngine:
             if self.tokenizer.peek_next_token() == "(":
                 self.__process(self.tokenizer.current_token, scope=SUBROUTINE)
             elif self.tokenizer.peek_next_token() == ".":
-                self.__process(self.tokenizer.current_token, scope=CLASS)
+                self.invoked_class_name = self.tokenizer.current_token
+                self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
+
             else:
                 self.__process(self.tokenizer.current_token)
 
-        self.__process(SEMICOLON)
+        # the caller of a void method must dump the returned value
+        self.vm_writer.write_pop(Segment.TEMP, 0)
+        self.tokenizer.advance()
+        # self.__process(SEMICOLON)
         self.indent_level -= 2
         self.__write_tag('/doStatement')
 
@@ -272,9 +279,16 @@ class CompilationEngine:
         self.__write_tag('returnStatement')
         self.indent_level += 2
         self.__process(RETURN)
+        # check if there's an expression
         while self.tokenizer.current_token != ';':
             self.compile_expression()
-        self.__process(SEMICOLON)
+        else:
+            # returns a value (all methods must return a value)
+            self.vm_writer.write_push(Segment.CONST, 0)
+
+        self.vm_writer.write_return()
+        self.tokenizer.advance()
+        # self.__process(SEMICOLON)
         self.indent_level -= 2
         self.__write_tag('/returnStatement')
 
@@ -286,13 +300,19 @@ class CompilationEngine:
             if self.tokenizer.current_token not in OPERATORS:
                 self.compile_term()
                 self.in_unary = False
-            elif self.tokenizer.current_token in UNARY_OPERATORS and beginning_expression is True:
-                self.compile_term()
+
             elif self.tokenizer.current_token in OPERATORS:
                 operator = self.tokenizer.current_token
                 self.tokenizer.advance()
                 self.compile_term()
                 self.vm_writer.write_line(BINARY_OPERATORS_TO_FUNC[operator])
+
+            elif self.tokenizer.current_token in UNARY_OPERATORS and beginning_expression is True:
+                operator = self.tokenizer.current_token
+                self.tokenizer.advance()
+                self.compile_term()
+                self.vm_writer.write_line(UNARY_OPERATORS_TO_FUNC[operator])
+
             else:
                 self.__process(self.tokenizer.current_token)
 
@@ -301,14 +321,17 @@ class CompilationEngine:
         self.__write_tag('/expression')
 
     def compile_expression_list(self):
+        num_of_expressions = 0
         self.__write_tag('expressionList')
         self.indent_level += 2
         while self.tokenizer.current_token != ')':
             if self.tokenizer.current_token == ',':
                 self.__process(self.tokenizer.current_token)
+            num_of_expressions += 1
             self.compile_expression()
         self.indent_level -= 2
         self.__write_tag('/expressionList')
+        return num_of_expressions
 
     def compile_term(self):
         self.__write_tag('term')
@@ -386,6 +409,12 @@ class CompilationEngine:
         self.__write_line("<{}> {} </{}>".format(tag, token, tag))
 
         if identifier_category_str == SUBROUTINE:
-            function_name = self.class_name + DOT + identifier_name
+            n_args = 0
             if not is_used:  # defined subroutine
-                self.vm_writer.write_function(function_name, self.symbol_table.var_count(IdentifierKind.ARG))
+                self.vm_writer.write_function(self.class_name + DOT + identifier_name,
+                                              self.symbol_table.var_count(IdentifierKind.ARG))
+            else:  # used subroutine
+                self.tokenizer.advance()  # move after (
+                self.tokenizer.advance()
+                n_args += self.compile_expression_list()
+                self.vm_writer.write_call(self.invoked_class_name + DOT + identifier_name, n_args)
