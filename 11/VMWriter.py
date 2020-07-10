@@ -16,6 +16,7 @@ class Segment(Enum):
     POINTER = 7
     TEMP = 8
 
+
 class Command(Enum):
     ADD = 1
     SUB = 2
@@ -26,6 +27,7 @@ class Command(Enum):
     AND = 7
     OR = 8
     NOT = 9
+
 
 class VMWriter:
 
@@ -42,7 +44,15 @@ class VMWriter:
         segment_str = segment.name.lower()
         if segment == Segment.CONST:
             segment_str = 'constant'
+        elif segment == Segment.ARG:
+            segment_str = 'argument'
         self.write_line(PUSH + " " + segment_str + " " + str(index))
+
+    def write_integer_constant(self, integer):
+        """
+        writes a VM push command for integer constant
+        """
+        self.write_push(Segment.CONST, integer)
 
     def write_pop(self, segment: Segment, index):
         """
@@ -51,6 +61,8 @@ class VMWriter:
         segment_str = segment.name.lower()
         if segment == Segment.CONST:
             segment_str = 'constant'
+        elif segment == Segment.ARG:
+            segment_str = 'argument'
         self.write_line(POP + " " + segment_str + " " + str(index))
 
     def write_arithmetic(self, command: Command):

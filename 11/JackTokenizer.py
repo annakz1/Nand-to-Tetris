@@ -18,10 +18,10 @@ PLUS = '+'
 MINUS = '-'
 ASTERISK = '*'
 SLASH = '/'
-AMPERSAND = '&;'
+AMPERSAND = '&'
 PIPELINE = '|'
-GREATER_THAN = '>;'
-LESS_THAN = '<;'
+GREATER_THAN = '>'
+LESS_THAN = '<'
 EQUAL = '='
 TILDA = '~'
 
@@ -132,9 +132,9 @@ class JackTokenizer:
                         new_line = new_line.replace('{', ' { ')
                         new_line = new_line.replace('-', ' - ')
                         new_line = new_line.replace('~', ' ~ ')
-                        new_line = new_line.replace('&', ' &amp; ')
-                        new_line = new_line.replace('<', ' &lt; ')
-                        new_line = new_line.replace('>', ' &gt; ')
+                        new_line = new_line.replace('&', ' & ')
+                        new_line = new_line.replace('<', ' < ')
+                        new_line = new_line.replace('>', ' > ')
 
                         new_line_splitted = new_line.split()
                         new_words = []

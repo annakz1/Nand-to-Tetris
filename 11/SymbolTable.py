@@ -93,7 +93,7 @@ class SymbolTable:
 
     def index_of(self, name):
         """
-        returns the index assignedto  the named identifier
+        returns the index assigned to  the named identifier
 
         :param name: identifier's name
         :return: identifier's index
