@@ -63,10 +63,11 @@ def parse_commands_and_write_output():
 
 
 file_name = check_input()
+label_index = 0
 if file_name is not None:  # this case handles single file
     parser = JackTokenizer(file_name + DOT + JACK_EXTENSION)
     try:
-        code_writer = CompilationEngine(file_name, False, parser, SymbolTable(), VMWriter(file_name))
+        code_writer = CompilationEngine(file_name, False, parser, SymbolTable(), VMWriter(file_name), label_index)
         parse_commands_and_write_output()
     except IOError:
         print(FILE_WRITE_ERROR)
@@ -92,7 +93,8 @@ else:
             parser = JackTokenizer(path_name + BACK_SLASH + jack_file)
             file_name = path_name + BACK_SLASH + jack_file.split(DOT)[0]
             code_writer = CompilationEngine(file_name, False, parser,
-                                            SymbolTable(), VMWriter(file_name))
+                                            SymbolTable(), VMWriter(file_name), label_index)
+            label_index = code_writer.label_index
             parse_commands_and_write_output()
             code_writer.close()
     except IOError:

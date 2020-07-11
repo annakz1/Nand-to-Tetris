@@ -31,12 +31,13 @@ UNARY_OPERATORS_TO_FUNC = {TILDA: 'not',
 class CompilationEngine:
     return_label_counter = 0
 
-    def __init__(self, file_name, more_than_one_file, tokenizer, symbol_table, vm_writer):
+    def __init__(self, file_name, more_than_one_file, tokenizer, symbol_table, vm_writer, label_index):
         self.output_file = open(file_name + DOT + XML_EXTENSION, "w")
         self.file_name = file_name.split(BACK_SLASH)[-1]
         self.class_name = self.file_name
         self.indent_level = 0
-        self.label_index = 0
+        self.label_index = label_index
+        self.invoked_arg_count = 0
         self.tokenizer = tokenizer
         self.symbol_table = symbol_table
         self.vm_writer = vm_writer
@@ -69,6 +70,7 @@ class CompilationEngine:
         if tag == TokenType.KEYWORD.name.lower():
             keyword = self.tokenizer.keyword()
             if keyword == THIS:
+                # sets the base address of the new object
                 self.vm_writer.write_push(Segment.POINTER, 0)
             elif keyword == FALSE or keyword == NULL or keyword == TRUE:
                 self.vm_writer.write_integer_constant(0)
@@ -123,6 +125,7 @@ class CompilationEngine:
     def compile_subroutine_dec(self, subroutine_type):
         self.__write_tag('subroutineDec')
         self.indent_level += 2
+        # creates the subroutine’s symbol table
         self.symbol_table.start_subroutine()
         # in methods only- argument 0 is always named this
         if subroutine_type == METHOD:
@@ -143,7 +146,7 @@ class CompilationEngine:
                 self.compile_parameters_list()
                 self.__process(self.tokenizer.current_token)
             elif self.tokenizer.current_token == '{':
-                self.compile_subroutine_body(subroutine_name)
+                self.compile_subroutine_body(subroutine_name, subroutine_type)
                 break
             else:
                 self.__process(self.tokenizer.current_token)
@@ -167,7 +170,7 @@ class CompilationEngine:
         self.indent_level -= 2
         self.__write_tag('/parameterList')
 
-    def compile_subroutine_body(self, subroutine_name):
+    def compile_subroutine_body(self, subroutine_name, subroutine_type):
         self.__write_tag('subroutineBody')
         self.__process(self.tokenizer.current_token)
         self.indent_level += 2
@@ -183,13 +186,26 @@ class CompilationEngine:
         self.vm_writer.write_function(self.class_name + DOT + subroutine_name,
                                       self.symbol_table.var_count(IdentifierKind.VAR))
 
+        if subroutine_type == CONSTRUCTOR:
+            self.invoked_class_name = self.class_name
+            # creating a memory block for representing the new object
+            self.vm_writer.write_integer_constant(self.symbol_table.var_count(IdentifierKind.FIELD))
+            self.vm_writer.write_call('Memory.alloc', 1)
+            # anchors THIS at the base address
+            self.vm_writer.write_pop(Segment.POINTER, 0)
+        elif subroutine_type == METHOD:
+            # generates code that associates the 'this' memory segment with the object on
+            # which the method was called to operate
+            self.vm_writer.write_push(Segment.ARG, 0)
+            self.vm_writer.write_pop(Segment.POINTER, 0)  # THIS = argument 0
+
         while self.tokenizer.current_token != '}':
             if self.tokenizer.current_token in STATEMENTS_TOKENS:
                 self.compile_statements()
             else:
                 self.__process(self.tokenizer.current_token)
         self.indent_level -= 2
-        self.__process(self.tokenizer.current_token)
+        self.__process(self.tokenizer.current_token)  # self.tokenizer.advance() # }
         self.__write_tag('/subroutineBody')
 
     def compile_var_def(self, scope=None, is_used=True):
@@ -310,9 +326,22 @@ class CompilationEngine:
                 self.__process(self.tokenizer.current_token)
                 self.compile_expression_list()
             if self.tokenizer.peek_next_token() == "(":
+                # if it's a method invocation- add 'this' to args
+                if self.invoked_class_name == self.class_name:
+                    self.invoked_arg_count = 1
+                    # Pushes the object on which the method is called to operate (implicit argument)
+                    self.vm_writer.write_push(Segment.POINTER, 0)
                 self.__process(self.tokenizer.current_token, scope=SUBROUTINE)
             elif self.tokenizer.peek_next_token() == ".":
-                self.invoked_class_name = self.tokenizer.current_token
+                invoking_identifier = self.tokenizer.current_token
+                identifier_category = self.symbol_table.kind_of(invoking_identifier)
+                # if it's a call on an object= METHOD
+                if identifier_category == IdentifierKind.VAR or identifier_category == IdentifierKind.FIELD \
+                        or identifier_category == IdentifierKind.ARG:
+                    self.invoked_class_name = self.symbol_table.type_of(invoking_identifier)
+                    self.invoked_arg_count = 1  # add 'this' to args
+                else:
+                    self.invoked_class_name = invoking_identifier
                 self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
 
             else:
@@ -339,6 +368,7 @@ class CompilationEngine:
         self.vm_writer.write_return()
         self.tokenizer.advance()
         # self.__process(SEMICOLON)
+
         self.indent_level -= 2
         self.__write_tag('/returnStatement')
 
@@ -400,8 +430,17 @@ class CompilationEngine:
                 self.compile_term()
             else:
                 if self.tokenizer.peek_next_token() == ".":
-                    self.invoked_class_name = self.tokenizer.current_token
-                    self.__process(self.tokenizer.current_token, scope=CLASS)
+                    invoking_identifier = self.tokenizer.current_token
+                    identifier_category = self.symbol_table.kind_of(invoking_identifier)
+                    # if it's a call on an object
+                    if identifier_category == IdentifierKind.VAR:
+                        self.invoked_class_name = self.symbol_table.type_of(invoking_identifier)
+                        self.invoked_arg_count = 1  # add 'this' to args
+                        # Pushes the object on which the method is called to operate (implicit argument)
+                        self.vm_writer.write_push(Segment.POINTER, 0)
+                    else:
+                        self.invoked_class_name = invoking_identifier
+                    self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
                 else:
                     self.__process(self.tokenizer.current_token)
         while self.tokenizer.current_token in TERM_ENDING:
@@ -462,10 +501,15 @@ class CompilationEngine:
 
         if identifier_category_str == SUBROUTINE and is_used:  # used subroutine
             n_args = 0
+            if self.invoked_arg_count == 1:  # METHOD call: meaning 'this' was added
+                n_args += self.invoked_arg_count
             self.tokenizer.advance()  # move after (
             self.tokenizer.advance()
             n_args += self.compile_expression_list()
             self.vm_writer.write_call(self.invoked_class_name + DOT + identifier_name, n_args)
+            # set the default for a subroutine to be a METHOD
+            self.invoked_class_name = self.class_name
+            self.invoked_arg_count = 0
 
         elif identifier_category == IdentifierKind.VAR and is_used:
             segment_of_var = self.__get_var_segment_by_kind(identifier_category)
@@ -475,8 +519,11 @@ class CompilationEngine:
             segment_of_var = self.__get_var_segment_by_kind(identifier_category)
             self.vm_writer.write_push(segment_of_var, identifier_index)
 
-    @staticmethod
-    def __get_var_segment_by_kind(kind_of_var):
+        elif identifier_category == IdentifierKind.FIELD and is_used:
+            segment_of_var = self.__get_var_segment_by_kind(identifier_category)
+            self.vm_writer.write_push(segment_of_var, identifier_index)
+
+    def __get_var_segment_by_kind(self, kind_of_var):
         if kind_of_var == IdentifierKind.STATIC:
             return Segment.STATIC
         elif kind_of_var == IdentifierKind.FIELD:
