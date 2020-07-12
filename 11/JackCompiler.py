@@ -94,8 +94,8 @@ else:
             file_name = path_name + BACK_SLASH + jack_file.split(DOT)[0]
             code_writer = CompilationEngine(file_name, False, parser,
                                             SymbolTable(), VMWriter(file_name), label_index)
-            label_index = code_writer.label_index
             parse_commands_and_write_output()
+            label_index = code_writer.label_index
             code_writer.close()
     except IOError:
         print(FILE_WRITE_ERROR)

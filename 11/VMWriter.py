@@ -1,5 +1,7 @@
 from enum import Enum
 
+from JackTokenizer import SYMBOLS_LIST
+
 DOT = '.'
 VM_EXTENSION = 'vm'
 POP = "pop"
@@ -53,6 +55,18 @@ class VMWriter:
         writes a VM push command for integer constant
         """
         self.write_push(Segment.CONST, integer)
+
+    def write_string_constant(self, string):
+        """
+        writes VM commands for string constant
+        """
+        for symbol in SYMBOLS_LIST:
+            string = string.replace(" " + symbol, symbol)
+        self.write_integer_constant(len(string))
+        self.write_call('String.new', 1)
+        for char in string:
+            self.write_integer_constant(ord(char))  # returns an integer representing the Unicode character
+            self.write_call('String.appendChar', 2)
 
     def write_pop(self, segment: Segment, index):
         """

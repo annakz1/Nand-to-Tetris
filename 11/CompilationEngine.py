@@ -42,6 +42,8 @@ class CompilationEngine:
         self.symbol_table = symbol_table
         self.vm_writer = vm_writer
         self.in_unary = False
+        self.is_array_var = False
+        self.is_method = False
         if more_than_one_file:
             pass
 
@@ -67,6 +69,7 @@ class CompilationEngine:
             tag = 'stringConstant'
             # TODO self.vm_writer.self.write_string
             token = self.tokenizer.string_val()
+            self.vm_writer.write_string_constant(token)
         if tag == TokenType.KEYWORD.name.lower():
             keyword = self.tokenizer.keyword()
             if keyword == THIS:
@@ -198,6 +201,7 @@ class CompilationEngine:
             # which the method was called to operate
             self.vm_writer.write_push(Segment.ARG, 0)
             self.vm_writer.write_pop(Segment.POINTER, 0)  # THIS = argument 0
+            self.is_method = True
 
         while self.tokenizer.current_token != '}':
             if self.tokenizer.current_token in STATEMENTS_TOKENS:
@@ -247,16 +251,29 @@ class CompilationEngine:
             self.__process(self.tokenizer.current_token)
             self.compile_expression()
             self.__process(self.tokenizer.current_token)
+
+            segment_of_var, index_of_var = self.__get_segment_and_index_of_var(var_name)
+            self.vm_writer.write_push(segment_of_var, index_of_var)
+
+            self.vm_writer.write_line('add')
+            self.tokenizer.advance()  # move after =
+            self.compile_expression()
+
+            self.vm_writer.write_pop(Segment.TEMP, 0)  # temp 0 = the value of expression2
+            self.vm_writer.write_pop(Segment.POINTER, 1)
+            self.vm_writer.write_push(Segment.TEMP, 0)
+            self.vm_writer.write_pop(Segment.THAT, 0)  # save in original var
+
         else:
             self.__process(EQUAL)
             self.compile_expression()
-            kind_of_var = self.symbol_table.kind_of(var_name)
-            segment_of_var = self.__get_var_segment_by_kind(kind_of_var)
-            index_of_var = self.symbol_table.index_of(var_name)
+            segment_of_var, index_of_var = self.__get_segment_and_index_of_var(var_name)
+
             self.vm_writer.write_pop(segment_of_var, index_of_var)
 
         self.__process(SEMICOLON)
         self.indent_level -= 2
+        self.is_method = False
         self.__write_tag('/letStatement')
 
     def compile_if(self):
@@ -327,7 +344,7 @@ class CompilationEngine:
                 self.compile_expression_list()
             if self.tokenizer.peek_next_token() == "(":
                 # if it's a method invocation- add 'this' to args
-                if self.invoked_class_name == self.class_name:
+                if self.invoked_class_name == self.class_name and self.is_method:
                     self.invoked_arg_count = 1
                     # Pushes the object on which the method is called to operate (implicit argument)
                     self.vm_writer.write_push(Segment.POINTER, 0)
@@ -340,6 +357,7 @@ class CompilationEngine:
                         or identifier_category == IdentifierKind.ARG:
                     self.invoked_class_name = self.symbol_table.type_of(invoking_identifier)
                     self.invoked_arg_count = 1  # add 'this' to args
+                    self.is_method = True
                 else:
                     self.invoked_class_name = invoking_identifier
                 self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
@@ -352,6 +370,7 @@ class CompilationEngine:
         self.tokenizer.advance()
         # self.__process(SEMICOLON)
         self.indent_level -= 2
+        self.is_method = False
         self.__write_tag('/doStatement')
 
     def compile_return(self):
@@ -416,6 +435,7 @@ class CompilationEngine:
     def compile_term(self):
         self.__write_tag('term')
         self.indent_level += 2
+        array_var_name = ''
         if self.tokenizer.current_token in UNARY_OPERATORS:
             self.in_unary = True
         else:
@@ -433,20 +453,29 @@ class CompilationEngine:
                     invoking_identifier = self.tokenizer.current_token
                     identifier_category = self.symbol_table.kind_of(invoking_identifier)
                     # if it's a call on an object
-                    if identifier_category == IdentifierKind.VAR:
+                    if identifier_category == IdentifierKind.VAR or identifier_category == IdentifierKind.FIELD or \
+                            identifier_category == IdentifierKind.ARG:
                         self.invoked_class_name = self.symbol_table.type_of(invoking_identifier)
                         self.invoked_arg_count = 1  # add 'this' to args
-                        # Pushes the object on which the method is called to operate (implicit argument)
-                        self.vm_writer.write_push(Segment.POINTER, 0)
                     else:
                         self.invoked_class_name = invoking_identifier
                     self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
                 else:
+                    if self.tokenizer.peek_next_token() == "[":
+                        array_var_name = self.tokenizer.current_token
+                        self.is_array_var = True
                     self.__process(self.tokenizer.current_token)
         while self.tokenizer.current_token in TERM_ENDING:
-            if self.tokenizer.current_token == '[':
+            if self.tokenizer.current_token == '[':  # Array term
                 self.__process(self.tokenizer.current_token)
                 self.compile_expression()
+
+                segment_of_var, index_of_var = self.__get_segment_and_index_of_var(array_var_name)
+                self.vm_writer.write_push(segment_of_var, index_of_var)
+                self.vm_writer.write_line('add')
+
+                self.vm_writer.write_pop(Segment.POINTER, 1)  # set pointer 1 to the entry’s address (arr + i)
+                self.vm_writer.write_push(Segment.THAT, 0)  # access the entry by accessing that 0
             elif self.tokenizer.current_token == '(':
                 self.__process(self.tokenizer.current_token)
                 self.compile_expression_list()
@@ -511,17 +540,29 @@ class CompilationEngine:
             self.invoked_class_name = self.class_name
             self.invoked_arg_count = 0
 
-        elif identifier_category == IdentifierKind.VAR and is_used:
+        elif identifier_category == IdentifierKind.VAR and is_used and not self.is_array_var:
             segment_of_var = self.__get_var_segment_by_kind(identifier_category)
             self.vm_writer.write_push(segment_of_var, identifier_index)
 
-        elif identifier_category == IdentifierKind.ARG and is_used:
+        elif identifier_category == IdentifierKind.ARG and is_used and not self.is_array_var:
             segment_of_var = self.__get_var_segment_by_kind(identifier_category)
             self.vm_writer.write_push(segment_of_var, identifier_index)
 
-        elif identifier_category == IdentifierKind.FIELD and is_used:
+        elif identifier_category == IdentifierKind.FIELD and is_used and not self.is_array_var:
             segment_of_var = self.__get_var_segment_by_kind(identifier_category)
             self.vm_writer.write_push(segment_of_var, identifier_index)
+
+        elif identifier_category == IdentifierKind.STATIC and is_used and not self.is_array_var:
+            segment_of_var = self.__get_var_segment_by_kind(identifier_category)
+            self.vm_writer.write_push(segment_of_var, identifier_index)
+
+        self.is_array_var = False
+
+    def __get_segment_and_index_of_var(self, var_name):
+        kind_of_var = self.symbol_table.kind_of(var_name)
+        segment_of_var = self.__get_var_segment_by_kind(kind_of_var)
+        index_of_var = self.symbol_table.index_of(var_name)
+        return segment_of_var, index_of_var
 
     def __get_var_segment_by_kind(self, kind_of_var):
         if kind_of_var == IdentifierKind.STATIC:
