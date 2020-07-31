@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 COMMENT_SYMBOL = '//'
 WHITE_SPACE = ' '
 EMPTY_STRING = ''
@@ -29,6 +30,8 @@ SYMBOLS_LIST = {CURLY_OPEN, CURLY_CLOSE, PARENTHESES_OPEN, PARENTHESES_CLOSE,
                 SQUARE_BRACKETS_OPEN, SQUARE_BRACKETS_CLOSE, DOT, COMMA,
                 SEMICOLON, PLUS, MINUS, ASTERISK, SLASH, AMPERSAND, PIPELINE,
                 GREATER_THAN, LESS_THAN, EQUAL, TILDA}
+OPERATORS = {PLUS, MINUS, ASTERISK, SLASH, AMPERSAND,
+             PIPELINE, LESS_THAN, GREATER_THAN, EQUAL, TILDA}
 
 CLASS = 'class'
 SUBROUTINE = 'subroutine'
@@ -130,11 +133,8 @@ class JackTokenizer:
                         new_line = new_line.replace(']', ' ] ')
                         new_line = new_line.replace('}', ' } ')
                         new_line = new_line.replace('{', ' { ')
-                        new_line = new_line.replace('-', ' - ')
-                        new_line = new_line.replace('~', ' ~ ')
-                        new_line = new_line.replace('&', ' & ')
-                        new_line = new_line.replace('<', ' < ')
-                        new_line = new_line.replace('>', ' > ')
+                        for operator in OPERATORS:
+                            new_line = new_line.replace(operator, " " + operator + " ")
 
                         new_line_splitted = new_line.split()
                         new_words = []

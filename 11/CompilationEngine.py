@@ -2,7 +2,6 @@ from JackTokenizer import *
 from SymbolTable import IdentifierKind
 from VMWriter import Segment
 
-XML_EXTENSION = 'xml'
 DOT = '.'
 BACK_SLASH = '\\'
 
@@ -32,10 +31,8 @@ class CompilationEngine:
     return_label_counter = 0
 
     def __init__(self, file_name, more_than_one_file, tokenizer, symbol_table, vm_writer, label_index):
-        self.output_file = open(file_name + DOT + XML_EXTENSION, "w")
         self.file_name = file_name.split(BACK_SLASH)[-1]
         self.class_name = self.file_name
-        self.indent_level = 0
         self.label_index = label_index
         self.invoked_arg_count = 0
         self.tokenizer = tokenizer
@@ -43,20 +40,12 @@ class CompilationEngine:
         self.vm_writer = vm_writer
         self.in_unary = False
         self.is_array_var = False
-        self.is_method = False
+        self.is_method_invocation = True
         if more_than_one_file:
             pass
 
-    def __get_indent_string(self):
-        if self.indent_level == 0:
-            return ""
-        return " " * self.indent_level
-
     def set_file_name(self, file_name):
         self.file_name = file_name
-
-    def __write_tag(self, tag):
-        self.__write_line("<{}>".format(tag))
 
     def __write_complete_tag_and_token(self, scope=None, is_used=True):
         tag = self.tokenizer.token_type().name.lower()
@@ -67,7 +56,6 @@ class CompilationEngine:
             self.vm_writer.write_integer_constant(token)
         if self.tokenizer.token_type() == TokenType.STRING_CONST:
             tag = 'stringConstant'
-            # TODO self.vm_writer.self.write_string
             token = self.tokenizer.string_val()
             self.vm_writer.write_string_constant(token)
         if tag == TokenType.KEYWORD.name.lower():
@@ -84,11 +72,6 @@ class CompilationEngine:
             self.handle_identifier(tag, token, scope, is_used)
             return
 
-        self.__write_line("<{}> {} </{}>".format(tag, token, tag))
-
-    def __write_line(self, line):
-        self.output_file.write(self.__get_indent_string() + line + '\n')
-
     def __process(self, token, scope=None, is_used=True):
         if self.tokenizer.current_token == token:
             self.__printToken(scope, is_used)
@@ -101,8 +84,6 @@ class CompilationEngine:
         self.__write_complete_tag_and_token(scope, is_used)
 
     def compile_class(self):
-        self.__write_tag(CLASS)
-        self.indent_level += 2
         self.__process(CLASS)
         # process class name
         self.class_name = self.tokenizer.current_token
@@ -110,11 +91,7 @@ class CompilationEngine:
 
         while self.tokenizer.has_more_tokens():
             if self.tokenizer.current_token in CLASS_VAR_DEC:
-                self.__write_tag('classVarDec')
-                self.indent_level += 2
                 self.compile_var_def(scope=CLASS, is_used=False)
-                self.indent_level -= 2
-                self.__write_tag('/classVarDec')
             elif self.tokenizer.current_token in SUBROUTINE_DEC:
                 subroutine_type = self.tokenizer.current_token
                 self.compile_subroutine_dec(subroutine_type)
@@ -122,12 +99,8 @@ class CompilationEngine:
                 self.__process(self.tokenizer.current_token)
 
         self.__write_complete_tag_and_token()
-        self.indent_level -= 2
-        self.__write_tag('/' + CLASS)
 
     def compile_subroutine_dec(self, subroutine_type):
-        self.__write_tag('subroutineDec')
-        self.indent_level += 2
         # creates the subroutine’s symbol table
         self.symbol_table.start_subroutine()
         # in methods only- argument 0 is always named this
@@ -154,12 +127,8 @@ class CompilationEngine:
             else:
                 self.__process(self.tokenizer.current_token)
 
-        self.indent_level -= 2
-        self.__write_tag('/' + 'subroutineDec')
 
     def compile_parameters_list(self):
-        self.__write_tag('parameterList')
-        self.indent_level += 2
         identifier_kind = IdentifierKind.ARG
         identifier_type = self.tokenizer.current_token
         while self.tokenizer.current_token != ')':
@@ -170,21 +139,13 @@ class CompilationEngine:
                 # we got identifier type
                 identifier_type = self.tokenizer.current_token
             self.__process(self.tokenizer.current_token, is_used=False)
-        self.indent_level -= 2
-        self.__write_tag('/parameterList')
 
     def compile_subroutine_body(self, subroutine_name, subroutine_type):
-        self.__write_tag('subroutineBody')
         self.__process(self.tokenizer.current_token)
-        self.indent_level += 2
 
         # check if there are var declarations
         while self.tokenizer.current_token == VAR and self.tokenizer.current_token != '}':
-            self.__write_tag('varDec')
-            self.indent_level += 2
             self.compile_var_def(scope=SUBROUTINE, is_used=False)
-            self.indent_level -= 2
-            self.__write_tag('/varDec')
 
         self.vm_writer.write_function(self.class_name + DOT + subroutine_name,
                                       self.symbol_table.var_count(IdentifierKind.VAR))
@@ -201,16 +162,13 @@ class CompilationEngine:
             # which the method was called to operate
             self.vm_writer.write_push(Segment.ARG, 0)
             self.vm_writer.write_pop(Segment.POINTER, 0)  # THIS = argument 0
-            self.is_method = True
 
         while self.tokenizer.current_token != '}':
             if self.tokenizer.current_token in STATEMENTS_TOKENS:
                 self.compile_statements()
             else:
                 self.__process(self.tokenizer.current_token)
-        self.indent_level -= 2
         self.__process(self.tokenizer.current_token)  # self.tokenizer.advance() # }
-        self.__write_tag('/subroutineBody')
 
     def compile_var_def(self, scope=None, is_used=True):
         identifier_kind = self.get_identifier_kind(self.tokenizer.current_token)
@@ -225,8 +183,6 @@ class CompilationEngine:
         self.__process(self.tokenizer.current_token)
 
     def compile_statements(self):
-        self.__write_tag('statements')
-        self.indent_level += 2
         while self.tokenizer.current_token != '}':
             if self.tokenizer.current_token == LET:
                 self.compile_let()
@@ -238,12 +194,8 @@ class CompilationEngine:
                 self.compile_do()
             else:
                 self.compile_return()
-        self.indent_level -= 2
-        self.__write_tag('/statements')
 
     def compile_let(self):
-        self.__write_tag('letStatement')
-        self.indent_level += 2
         self.__process(LET)
         var_name = self.tokenizer.current_token
         self.__process(self.tokenizer.current_token, is_used=False)
@@ -272,13 +224,9 @@ class CompilationEngine:
             self.vm_writer.write_pop(segment_of_var, index_of_var)
 
         self.__process(SEMICOLON)
-        self.indent_level -= 2
-        self.is_method = False
-        self.__write_tag('/letStatement')
+        self.is_method_invocation = True  # return to default
 
     def compile_if(self):
-        self.__write_tag('ifStatement')
-        self.indent_level += 2
         self.__process(IF)
         self.__process('(')
 
@@ -301,8 +249,6 @@ class CompilationEngine:
             self.compile_statements()
             self.__process('}')
         self.vm_writer.write_label(end_label)
-        self.indent_level -= 2
-        self.__write_tag('/ifStatement')
 
     def __get_next_label(self):
         label = "L" + str(self.label_index)
@@ -310,9 +256,6 @@ class CompilationEngine:
         return label
 
     def compile_while(self):
-        self.__write_tag('whileStatement')
-        self.indent_level += 2
-
         while_label = self.__get_next_label()
         end_label = self.__get_next_label()
 
@@ -331,12 +274,8 @@ class CompilationEngine:
 
         self.vm_writer.write_label(end_label)
         self.__process('}')
-        self.indent_level -= 2
-        self.__write_tag('/whileStatement')
 
     def compile_do(self):
-        self.__write_tag('doStatement')
-        self.indent_level += 2
         self.__process('do')
         while self.tokenizer.current_token != ';':
             if self.tokenizer.current_token == '(':
@@ -344,7 +283,7 @@ class CompilationEngine:
                 self.compile_expression_list()
             if self.tokenizer.peek_next_token() == "(":
                 # if it's a method invocation- add 'this' to args
-                if self.invoked_class_name == self.class_name and self.is_method:
+                if self.invoked_class_name == self.class_name and self.is_method_invocation:
                     self.invoked_arg_count = 1
                     # Pushes the object on which the method is called to operate (implicit argument)
                     self.vm_writer.write_push(Segment.POINTER, 0)
@@ -357,9 +296,10 @@ class CompilationEngine:
                         or identifier_category == IdentifierKind.ARG:
                     self.invoked_class_name = self.symbol_table.type_of(invoking_identifier)
                     self.invoked_arg_count = 1  # add 'this' to args
-                    self.is_method = True
+                    self.is_method_invocation = True
                 else:
                     self.invoked_class_name = invoking_identifier
+                    self.is_method_invocation = False
                 self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
 
             else:
@@ -368,14 +308,9 @@ class CompilationEngine:
         # the caller of a void method must dump the returned value
         self.vm_writer.write_pop(Segment.TEMP, 0)
         self.tokenizer.advance()
-        # self.__process(SEMICOLON)
-        self.indent_level -= 2
-        self.is_method = False
-        self.__write_tag('/doStatement')
+        self.is_method_invocation = True  # return to default
 
     def compile_return(self):
-        self.__write_tag('returnStatement')
-        self.indent_level += 2
         self.__process(RETURN)
         # check if there's an expression
         if self.tokenizer.current_token != ';':
@@ -386,14 +321,8 @@ class CompilationEngine:
 
         self.vm_writer.write_return()
         self.tokenizer.advance()
-        # self.__process(SEMICOLON)
-
-        self.indent_level -= 2
-        self.__write_tag('/returnStatement')
 
     def compile_expression(self):
-        self.__write_tag('expression')
-        self.indent_level += 2
         beginning_expression = True
         while self.tokenizer.current_token not in EXPRESSION_ENDING:
             if self.tokenizer.current_token not in OPERATORS:
@@ -416,25 +345,17 @@ class CompilationEngine:
                 self.__process(self.tokenizer.current_token)
 
             beginning_expression = False
-        self.indent_level -= 2
-        self.__write_tag('/expression')
 
     def compile_expression_list(self):
         num_of_expressions = 0
-        self.__write_tag('expressionList')
-        self.indent_level += 2
         while self.tokenizer.current_token != ')':
             if self.tokenizer.current_token == ',':
                 self.__process(self.tokenizer.current_token)
             num_of_expressions += 1
             self.compile_expression()
-        self.indent_level -= 2
-        self.__write_tag('/expressionList')
         return num_of_expressions
 
     def compile_term(self):
-        self.__write_tag('term')
-        self.indent_level += 2
         array_var_name = ''
         if self.tokenizer.current_token in UNARY_OPERATORS:
             self.in_unary = True
@@ -457,8 +378,10 @@ class CompilationEngine:
                             identifier_category == IdentifierKind.ARG:
                         self.invoked_class_name = self.symbol_table.type_of(invoking_identifier)
                         self.invoked_arg_count = 1  # add 'this' to args
+                        self.is_method_invocation = True
                     else:
                         self.invoked_class_name = invoking_identifier
+                        self.is_method_invocation = False
                     self.__process(self.tokenizer.current_token, scope=CLASS, is_used=True)
                 else:
                     if self.tokenizer.peek_next_token() == "[":
@@ -491,17 +414,10 @@ class CompilationEngine:
             self.compile_expression()
             self.__process(self.tokenizer.current_token)
         if self.in_unary is True:
-            self.__write_tag('term')
-            self.indent_level += 2
             self.__process(self.tokenizer.current_token)
-            self.indent_level -= 2
-            self.__write_tag('/term')
             self.in_unary = False
-        self.indent_level -= 2
-        self.__write_tag('/term')
 
     def close(self):
-        self.output_file.close()
         self.vm_writer.close()
 
     def get_identifier_kind(self, current_token):
@@ -518,45 +434,30 @@ class CompilationEngine:
         if identifier_category == IdentifierKind.NONE:
             identifier_category_str = scope
 
-        token = str(identifier_name) + ";" + str(identifier_category_str) + ";"
         identifier_index = None
         if identifier_category != IdentifierKind.NONE:
             identifier_index = self.symbol_table.index_of(identifier_name)
-            token += str(identifier_index) + ";"
 
-        is_used_str = "defined" if is_used == False else "used"
-        token += is_used_str
-        self.__write_line("<{}> {} </{}>".format(tag, token, tag))
+        if is_used:
+            if identifier_category_str == SUBROUTINE:  # used subroutine
+                n_args = 0
+                if self.invoked_arg_count == 1:  # METHOD call: meaning 'this' was added
+                    n_args += self.invoked_arg_count
+                self.tokenizer.advance()  # move after (
+                self.tokenizer.advance()
+                n_args += self.compile_expression_list()
+                self.vm_writer.write_call(self.invoked_class_name + DOT + identifier_name, n_args)
+                # set the default for a subroutine to be a METHOD
+                self.invoked_class_name = self.class_name
+                self.invoked_arg_count = 0
 
-        if identifier_category_str == SUBROUTINE and is_used:  # used subroutine
-            n_args = 0
-            if self.invoked_arg_count == 1:  # METHOD call: meaning 'this' was added
-                n_args += self.invoked_arg_count
-            self.tokenizer.advance()  # move after (
-            self.tokenizer.advance()
-            n_args += self.compile_expression_list()
-            self.vm_writer.write_call(self.invoked_class_name + DOT + identifier_name, n_args)
-            # set the default for a subroutine to be a METHOD
-            self.invoked_class_name = self.class_name
-            self.invoked_arg_count = 0
+            elif (identifier_category == IdentifierKind.VAR or identifier_category == IdentifierKind.ARG
+                  or identifier_category == IdentifierKind.FIELD or identifier_category == IdentifierKind.STATIC) \
+                    and not self.is_array_var:
+                segment_of_var = self.__get_var_segment_by_kind(identifier_category)
+                self.vm_writer.write_push(segment_of_var, identifier_index)
 
-        elif identifier_category == IdentifierKind.VAR and is_used and not self.is_array_var:
-            segment_of_var = self.__get_var_segment_by_kind(identifier_category)
-            self.vm_writer.write_push(segment_of_var, identifier_index)
-
-        elif identifier_category == IdentifierKind.ARG and is_used and not self.is_array_var:
-            segment_of_var = self.__get_var_segment_by_kind(identifier_category)
-            self.vm_writer.write_push(segment_of_var, identifier_index)
-
-        elif identifier_category == IdentifierKind.FIELD and is_used and not self.is_array_var:
-            segment_of_var = self.__get_var_segment_by_kind(identifier_category)
-            self.vm_writer.write_push(segment_of_var, identifier_index)
-
-        elif identifier_category == IdentifierKind.STATIC and is_used and not self.is_array_var:
-            segment_of_var = self.__get_var_segment_by_kind(identifier_category)
-            self.vm_writer.write_push(segment_of_var, identifier_index)
-
-        self.is_array_var = False
+            self.is_array_var = False
 
     def __get_segment_and_index_of_var(self, var_name):
         kind_of_var = self.symbol_table.kind_of(var_name)

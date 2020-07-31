@@ -11,7 +11,6 @@ NO_VM_FILES = 'Error: No .jack files in directory'
 FILE_OPEN_ERROR = 'Error: Cannot open file'
 FILE_WRITE_ERROR = 'Error: Cannot write to file'
 NO_FILES_ERROR = 'No .jack files found in the directory'
-XML_EXTENSION = 'xml'
 JACK_EXTENSION = 'jack'
 DOT = '.'
 BACK_SLASH = '\\'
@@ -55,7 +54,7 @@ def check_input():
     return None
 
 
-# running the function to parse commands and write the translation to an .xml file
+# running the function to parse commands and write the translation to a .vm file
 def parse_commands_and_write_output():
     if parser.has_more_tokens():
         parser.advance()
