@@ -1,13 +1,25 @@
 function Food.new 0
-push constant 3
+push constant 5
 call Memory.alloc 1
 pop pointer 0
-push argument 0
+push pointer 0
+push constant 6
+call Food.getRandomX 2
 pop this 0
-push argument 1
+push pointer 0
+push constant 6
+call Food.getRandomY 2
 pop this 1
-push argument 2
+push argument 0
+pop this 4
+push this 0
+push this 4
+add
 pop this 2
+push this 1
+push this 4
+add
+pop this 3
 push pointer 0
 call Food.draw 1
 pop temp 0
@@ -22,6 +34,16 @@ function Food.getY 0
 push argument 0
 pop pointer 0
 push this 1
+return
+function Food.getXF 0
+push argument 0
+pop pointer 0
+push this 2
+return
+function Food.getYF 0
+push argument 0
+pop pointer 0
+push this 3
 return
 function Food.dispose 0
 push argument 0
@@ -40,12 +62,8 @@ call Screen.setColor 1
 pop temp 0
 push this 0
 push this 1
-push this 0
 push this 2
-add
-push this 1
-push this 2
-add
+push this 3
 call Screen.drawRectangle 4
 pop temp 0
 push constant 0
@@ -58,12 +76,8 @@ call Screen.setColor 1
 pop temp 0
 push this 0
 push this 1
-push this 0
 push this 2
-add
-push this 1
-push this 2
-add
+push this 3
 call Screen.drawRectangle 4
 pop temp 0
 push constant 0
@@ -71,16 +85,122 @@ return
 function Food.drawInRandomLocation 0
 push argument 0
 pop pointer 0
-push this 0
-push constant 6
-add
+push pointer 0
+push argument 1
+call Food.getRandomX 2
 pop this 0
-push this 1
-push constant 6
-add
+push pointer 0
+push argument 1
+call Food.getRandomY 2
 pop this 1
+push this 0
+push this 4
+add
+pop this 2
+push this 1
+push this 4
+add
+pop this 3
 push pointer 0
 call Food.draw 1
 pop temp 0
 push constant 0
 return
+function Food.getRandomX 1
+push argument 0
+pop pointer 0
+push this 0
+push argument 1
+push argument 1
+call Math.multiply 2
+push constant 3
+call Math.multiply 2
+add
+pop local 0
+push local 0
+push this 4
+add
+push constant 510
+lt
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push local 0
+return
+goto IF_END0
+label IF_FALSE0
+push this 0
+push argument 1
+push argument 1
+call Math.multiply 2
+push constant 3
+call Math.multiply 2
+sub
+pop local 0
+push this 0
+push constant 1
+gt
+if-goto IF_TRUE1
+goto IF_FALSE1
+label IF_TRUE1
+push local 0
+return
+goto IF_END1
+label IF_FALSE1
+push argument 1
+push argument 1
+call Math.multiply 2
+push constant 3
+call Math.multiply 2
+return
+label IF_END1
+label IF_END0
+function Food.getRandomY 1
+push argument 0
+pop pointer 0
+push this 1
+push argument 1
+push argument 1
+call Math.multiply 2
+push constant 3
+call Math.multiply 2
+add
+pop local 0
+push local 0
+push this 4
+add
+push constant 254
+lt
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push local 0
+return
+goto IF_END0
+label IF_FALSE0
+push this 1
+push argument 1
+push argument 1
+call Math.multiply 2
+push constant 3
+call Math.multiply 2
+sub
+pop local 0
+push this 1
+push constant 1
+gt
+if-goto IF_TRUE1
+goto IF_FALSE1
+label IF_TRUE1
+push local 0
+return
+goto IF_END1
+label IF_FALSE1
+push argument 1
+push argument 1
+call Math.multiply 2
+push constant 3
+call Math.multiply 2
+return
+label IF_END1
+label IF_END0

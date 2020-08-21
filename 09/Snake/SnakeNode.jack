@@ -1,14 +1,14 @@
 
 /** Represents a linked list of SnakeNode. */
 class SnakeNode {
-    field int data;          
+	field int data;          
     field int x, y;          // screen location of the snake's node top-left corner
 	field int size;
     field SnakeNode next;         
 
     /* Creates a SnakeNode. */
     constructor SnakeNode new(int Ax, int Ay, int Asize, SnakeNode cdr) {
-        let x = Ax;       
+		let x = Ax;       
         let y = Ay;       
 		let size = Asize;
         let next = cdr;       // memory of the Lisp programming language
@@ -38,7 +38,7 @@ class SnakeNode {
         let current = this;  // of this list
         while (~(current = null)) {
             do Output.printInt(current.getData());
-            do Output.printChar(32); // prints a space
+			do Output.printChar(32); // prints a space
             let current = current.getNext();
         }
         return;
@@ -92,7 +92,5 @@ class SnakeNode {
       do Screen.drawRectangle(x, y, x + size, y + size);
       return;
    }
-
-
 
 }

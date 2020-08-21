@@ -1,105 +1,130 @@
 /** Implements a graphical snake. */
 class Snake {
 
-   field int x, y; // screen location of the snake's top-left corner
-   field int size; // length of this snake, in pixels
-   field SnakeNode head; 
-   field SnakeNode tail; 
-   field Food food;
+	field int x, y; // screen location of the snake's top-left corner head
+	field int size; // length of this snake, in pixels
+	field SnakeNode head; 
+	field SnakeNode tail; 
+	field Food food;
 
-   /** Constructs a new snake with a given location and size. */
-   constructor Snake new(int Ax, int Ay, int Asize, Food Afood) {
-      let x = Ax;
-      let y = Ay;
-	  let size = Asize;
-	  let head = SnakeNode.new(x, y, size, null);
-	  let tail = head;
-	  let food = Afood;
-      do head.draw();
-      return this;
-   }
+	/** Constructs a new snake with a given location and size. */
+	constructor Snake new(int Ax, int Ay, int Asize, Food Afood) {
+		let x = Ax;
+		let y = Ay;
+		let size = Asize;
+		let head = SnakeNode.new(x, y, size, null);
+		let tail = head;
+		let food = Afood;
+		do head.draw();
+		return this;
+	}
 
-   /** Disposes this snake. */
-   method void dispose() {
-	  do head.dispose(); // disposes the snake list
-      do Memory.deAlloc(this);
-      return;
-   }
+	/** Disposes this snake. */
+	method void dispose() {
+		do head.dispose(); // disposes the snake list
+		do Memory.deAlloc(this);
+		return;
+	}
 
-   /** Moves the snake up by 3 pixels. */
-   method void moveUp() {
-	  var SnakeNode newNode;
-      if (y > 1) {
-		 let y = y - 3;
-		 if (x = food.getX() & y = food.getY()) {
-			do food.erase();
-			do food.drawInRandomLocation();
-			let newNode = SnakeNode.newWithoutLocation(size, null);
-			do tail.setNext(newNode);
-			let tail = newNode;
-			
-		 }
-		 do head.updateSnakeLocation(x, y);
-      }else{
-		do Sys.halt();
-	  }
-      return;
-   }
+	/** Moves the snake up by 3 pixels. */
+	method void moveUp() {
+		var SnakeNode newNode;
+		if (y > 1) {
+			let y = y - 3;
+			// check if ate 
+			if ( isTouchingFood() ) {
+				do food.erase();
+				do food.drawInRandomLocation(1);
+				let newNode = SnakeNode.newWithoutLocation(size, null);
+				do tail.setNext(newNode);
+				let tail = newNode;
+			}
+			do head.updateSnakeLocation(x, y);
+		}else{
+			do Sys.halt();
+		}
+		return;
+	}
 
-   /** Moves the snake down by 3 pixels. */
-   method void moveDown() {
-	  var SnakeNode newNode;
-      if ((y + size) < 254) {
-         let y = y + 3;
-		 if (x = food.getX() & y = food.getY()) {
-			do food.erase();
-			do food.drawInRandomLocation();
-			let newNode = SnakeNode.newWithoutLocation(size, null);
-			do tail.setNext(newNode);
-			let tail = newNode;
-		 }
-		 do head.updateSnakeLocation(x, y);
-      }else{
-		do Sys.halt();
-	  }
-      return;
-   }
+	/** Moves the snake down by 3 pixels. */
+	method void moveDown() {
+		var SnakeNode newNode;
+		if ((y + size) < 254) {
+			let y = y + 3;
+			// check if ate 
+			if ( isTouchingFood() ) {
+				do food.erase();
+				do food.drawInRandomLocation(2);
+				let newNode = SnakeNode.newWithoutLocation(size, null);
+				do tail.setNext(newNode);
+				let tail = newNode;
+			}
+			do head.updateSnakeLocation(x, y);
+		}else{
+			do Sys.halt();
+		}
+		return;
+	}
 
-   /** Moves the snake left by 3 pixels. */
-   method void moveLeft() {
-	  var SnakeNode newNode;
-      if (x > 1) {        
-	     let x = x - 3;
-		 if (x = food.getX() & y = food.getY()) {
-			do food.erase();
-			do food.drawInRandomLocation();
-			let newNode = SnakeNode.newWithoutLocation(size, null);
-			do tail.setNext(newNode);
-			let tail = newNode;
-		 }	
-		 do head.updateSnakeLocation(x, y);
-      }else{
-		do Sys.halt();
-	  }
-      return;
-   }
+	/** Moves the snake left by 3 pixels. */
+	method void moveLeft() {
+		var SnakeNode newNode;
+		if (x > 1) {        
+			let x = x - 3;
+			// check if ate 
+			if ( isTouchingFood() ) {
+				do food.erase();
+				do food.drawInRandomLocation(3);
+				let newNode = SnakeNode.newWithoutLocation(size, null);
+				do tail.setNext(newNode);
+				let tail = newNode;
+			}	
+			do head.updateSnakeLocation(x, y);
+		}else{
+			do Sys.halt();
+		}
+		return;
+	}
 
-   /** Moves the snake right by 3 pixels. */
-   method void moveRight() {
-	  var SnakeNode newNode;
-      if ((x + size) < 510) {
-         let x = x + 3;
-		 if (x = food.getX() & y = food.getY()) {
-			do food.erase();
-			do food.drawInRandomLocation();
-			let newNode = SnakeNode.newWithoutLocation(size, null);
-			do tail.setNext(newNode);
-			let tail = newNode;
-		 }	
-		 do head.updateSnakeLocation(x, y);
-      }else{
-		do Sys.halt();
-	  }
-      return;
-   }
+	/** Moves the snake right by 3 pixels. */
+	method void moveRight() {
+		var SnakeNode newNode;
+		if ((x + size) < 510) {
+			let x = x + 3;
+			// check if ate 
+			if ( isTouchingFood() ) {
+				do food.erase();
+				do food.drawInRandomLocation(4);
+				let newNode = SnakeNode.newWithoutLocation(size, null);
+				do tail.setNext(newNode);
+				let tail = newNode;
+			}	
+			do head.updateSnakeLocation(x, y);
+		}else{
+			do Sys.halt();
+		}
+		return;
+	}
+	
+	method boolean isTouchingFood() {
+		if ((xInFood(x) & yInFood(y)) | (xInFood(x + size) & yInFood(y)) | (xInFood(x + size) & yInFood(y + size)) | (xInFood(x) & yInFood(y + size))){
+			return true;
+		}
+		return false;
+		
+	}
+	
+	method boolean yInFood(int Ay) {
+		if ( Ay = food.getY() | ((Ay > (food.getY()-1)) & (Ay < (food.getYF()+1)))){
+			return true;
+		}
+		return false;
+	}
+	
+	method boolean xInFood(int Ax) {
+		if ( Ax = food.getX() | ((Ax > (food.getX()+1)) & (Ax < (food.getXF()+1)))){
+			return true;
+		}
+		return false;
+	}
 }

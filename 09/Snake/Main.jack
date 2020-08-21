@@ -2,7 +2,7 @@
 /** Initializes a new Snake game and starts running it. */
 class Main {
     function void main() {
-        var SnakeGame game;
+		var SnakeGame game;
         let game = SnakeGame.new();
         do game.run();
         do game.dispose();

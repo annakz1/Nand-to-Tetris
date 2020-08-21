@@ -47,15 +47,8 @@ push this 1
 push constant 3
 sub
 pop this 1
-push this 0
-push this 5
-call Food.getX 1
-eq
-push this 1
-and
-push this 5
-call Food.getY 1
-eq
+push pointer 0
+call Snake.isTouchingFood 1
 if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
@@ -63,7 +56,8 @@ push this 5
 call Food.erase 1
 pop temp 0
 push this 5
-call Food.drawInRandomLocation 1
+push constant 1
+call Food.drawInRandomLocation 2
 pop temp 0
 push this 2
 push constant 0
@@ -103,15 +97,8 @@ push this 1
 push constant 3
 add
 pop this 1
-push this 0
-push this 5
-call Food.getX 1
-eq
-push this 1
-and
-push this 5
-call Food.getY 1
-eq
+push pointer 0
+call Snake.isTouchingFood 1
 if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
@@ -119,7 +106,8 @@ push this 5
 call Food.erase 1
 pop temp 0
 push this 5
-call Food.drawInRandomLocation 1
+push constant 2
+call Food.drawInRandomLocation 2
 pop temp 0
 push this 2
 push constant 0
@@ -157,15 +145,8 @@ push this 0
 push constant 3
 sub
 pop this 0
-push this 0
-push this 5
-call Food.getX 1
-eq
-push this 1
-and
-push this 5
-call Food.getY 1
-eq
+push pointer 0
+call Snake.isTouchingFood 1
 if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
@@ -173,7 +154,8 @@ push this 5
 call Food.erase 1
 pop temp 0
 push this 5
-call Food.drawInRandomLocation 1
+push constant 3
+call Food.drawInRandomLocation 2
 pop temp 0
 push this 2
 push constant 0
@@ -213,15 +195,8 @@ push this 0
 push constant 3
 add
 pop this 0
-push this 0
-push this 5
-call Food.getX 1
-eq
-push this 1
-and
-push this 5
-call Food.getY 1
-eq
+push pointer 0
+call Snake.isTouchingFood 1
 if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
@@ -229,7 +204,8 @@ push this 5
 call Food.erase 1
 pop temp 0
 push this 5
-call Food.drawInRandomLocation 1
+push constant 4
+call Food.drawInRandomLocation 2
 pop temp 0
 push this 2
 push constant 0
@@ -252,5 +228,116 @@ label IF_FALSE0
 call Sys.halt 0
 pop temp 0
 label IF_END0
+push constant 0
+return
+function Snake.isTouchingFood 0
+push argument 0
+pop pointer 0
+push pointer 0
+push this 0
+call Snake.xInFood 2
+push pointer 0
+push this 1
+call Snake.yInFood 2
+and
+push pointer 0
+push this 0
+push this 2
+add
+call Snake.xInFood 2
+push pointer 0
+push this 1
+call Snake.yInFood 2
+and
+or
+push pointer 0
+push this 0
+push this 2
+add
+call Snake.xInFood 2
+push pointer 0
+push this 1
+push this 2
+add
+call Snake.yInFood 2
+and
+or
+push pointer 0
+push this 0
+call Snake.xInFood 2
+push pointer 0
+push this 1
+push this 2
+add
+call Snake.yInFood 2
+and
+or
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 0
+not
+return
+label IF_FALSE0
+push constant 0
+return
+function Snake.yInFood 0
+push argument 0
+pop pointer 0
+push argument 1
+push this 5
+call Food.getY 1
+eq
+push argument 1
+push this 5
+call Food.getY 1
+push constant 1
+sub
+gt
+push argument 1
+push this 5
+call Food.getYF 1
+push constant 1
+add
+lt
+and
+or
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 0
+not
+return
+label IF_FALSE0
+push constant 0
+return
+function Snake.xInFood 0
+push argument 0
+pop pointer 0
+push argument 1
+push this 5
+call Food.getX 1
+eq
+push argument 1
+push this 5
+call Food.getX 1
+push constant 1
+add
+gt
+push argument 1
+push this 5
+call Food.getXF 1
+push constant 1
+add
+lt
+and
+or
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 0
+not
+return
+label IF_FALSE0
 push constant 0
 return
